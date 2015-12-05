@@ -36,118 +36,63 @@ class Related_Articles extends Plugin {
 		$host->add_hook($host::HOOK_PREFS_TAB, $this);
 		$host->add_hook($host::HOOK_PREFS_EDIT_FEED, $this);
 		$host->add_hook($host::HOOK_PREFS_SAVE_FEED, $this);
-		$host->add_hook($host::HOOK_ARTICLE_BUTTON, $this);
+		$host->add_hook($host::HOOK_RENDER_ARTICLE_CDM, $this);
 
 	}
 
-	function get_js() {
-		return file_get_contents(__DIR__ . "/init.js");
-	}
-
-	function showrelated() {
-		$id = (int) db_escape_string($_REQUEST['param']);
+	function hook_render_article_cdm($article) {
 		$owner_uid = $_SESSION["uid"];
 
-		$result = db_query("SELECT title FROM ttrss_entries, ttrss_user_entries
-			WHERE ref_id = id AND id = $id AND owner_uid = $owner_uid");
-
-		$title = db_fetch_result($result, 0, "title");
-
-		print "<h2>$title</h2>";
-
-		$title = db_escape_string($title);
-		// SELECT *, MATCH(title, content) AGAINST('Retour sur la conférence de Sony') as score FROM `ttrss_related_articles` WHERE MATCH(title,content) AGAINST('Retour sur la conférence de Sony') > 0
-		// TODO Add score parameter to WHERE clause
+		$id = $article['id'];
+		$title = db_escape_string($article['title']);
 
 		$similarity = $this->host->get($this, "similarity");
 		if (!$similarity) $similarity = '5';
 
 		$result = db_query("SELECT ttrss_entries.id AS id,
-				ttrss_entries.updated AS updated,
-				ttrss_entries.title AS title,
-				MATCH(ttrss_related_articles.title, ttrss_related_articles.content) AGAINST('$title') AS score
-			FROM
-				ttrss_related_articles, ttrss_entries
-			WHERE
-				MATCH(ttrss_related_articles.title, ttrss_related_articles.content) AGAINST('$title') > $similarity AND ttrss_related_articles.ref_id = ttrss_entries.id AND ttrss_related_articles.ref_id != $id
-			ORDER BY
-				score DESC
-			LIMIT 10");
-		/*$result = db_query("SELECT ttrss_related_articles.ref_id AS id,
-				ttrss_related_articles.title AS title,
-				MATCH(title, content) AGAINST('$title') AS score
-			FROM
-				ttrss_related_articles, ttrss_entries
-			WHERE
-				MATCH(title, content) AGAINST('$title') AND ttrss_related_articles.ref_id == ttrss_entries.id AND ttrss_related_articles.ref_id != $id
-			ORDER BY
-				score DESC
-			LIMIT 10");*/
+		        ttrss_entries.updated AS updated,
+		        ttrss_entries.title AS title,
+		        ttrss_feeds.title AS feed_name,
+		        ttrss_feeds.favicon_avg_color AS feed_color,
+		        MATCH(ttrss_related_articles.title, ttrss_related_articles.content) AGAINST('$title') AS score
+		    FROM
+		        ttrss_related_articles, ttrss_entries, ttrss_user_entries LEFT JOIN ttrss_feeds ON (ttrss_feeds.id = ttrss_user_entries.feed_id)
+		    WHERE
+		        MATCH(ttrss_related_articles.title, ttrss_related_articles.content) AGAINST('$title') > $similarity AND
+		        ttrss_entries.id = ttrss_user_entries.ref_id AND
+		        ttrss_user_entries.owner_uid = $owner_uid AND
+		        ttrss_related_articles.ref_id = ttrss_entries.id AND
+		        ttrss_related_articles.ref_id != $id
+		    ORDER BY
+		        score DESC
+		    LIMIT 10");
 
-		print "<ul class=\"browseFeedList\" style=\"border-width : 1px\">";
+		$addition = "<ul class=\"browseFeedList\">";
 
 		while ($line = db_fetch_assoc($result)) {
-			print "<li>";
+		    $score = sprintf("%.2f", $line['score']);
 
-			print "<div class='insensitive small' style='margin-left : 20px; float : right'>" .
-				smart_date_time(strtotime($line["updated"]))
-				. "</div>";
+		    $addition = $addition . "<li>";
 
-			$score = sprintf("%.2f", $line['score']);
-			print "<img src='images/score_high.png' title='$score'
-				style='vertical-align : middle'>";
+		    $addition = $addition . "<div class='insensitive small' style='margin-left : 20px; float : right'>" . smart_date_time(strtotime($line["updated"])) . "</div>";
+		    $addition = $addition . "<img src='images/score_high.png' title='$score' style='vertical-align : middle'>";
 
-			print " ".$line["title"];
+		    $addition = $addition . "<div class='hlFeed' style='display: inline-block; font-size: 11px; width: 135px'>";
+		    $addition = $addition . "<a href='#' style='umargin-top: 1px; padding: 1px 6px 0px; border: 1px solid rgba(0, 0, 0, 0.03); border-radius: 99px; background: rgba(0, 0, 0, 0.1) none repeat scroll 0% 0%; color: #444; line-height: 1; overflow: hidden; max-width: 115px; text-overflow: ellipsis; background-color: " . $line["feed_color"] . "'>" . $line["feed_name"] . "</a>";
+		    $addition = $addition . "</div>";
 
-			print " <span class='insensitive'>($score)</span>";
+		    $addition = $addition . " " .$line["title"];
 
-			print "</li>";
+		    $addition = $addition .  " <span class='insensitive'>($score)</span>";
+
+		    $addition = $addition . "</li>";
 		}
-		/*$result = db_query("SELECT ttrss_entries.id AS id,
-				feed_id,
-				ttrss_entries.title AS title,
-				updated, link,
-				ttrss_feeds.title AS feed_title,
-				SIMILARITY(ttrss_entries.title, '$title') AS sm
-			FROM
-				ttrss_entries, ttrss_user_entries LEFT JOIN ttrss_feeds ON (ttrss_feeds.id = feed_id)
-			WHERE
-				ttrss_entries.id = ref_id AND
-				ttrss_user_entries.owner_uid = $owner_uid AND
-				ttrss_entries.id != $id AND
-				date_entered >= NOW() - INTERVAL '2 weeks'
-			ORDER BY
-				sm DESC, date_entered DESC
-			LIMIT 10");
-		while ($line = db_fetch_assoc($result)) {
-			print "<li>";
-			print "<div class='insensitive small' style='margin-left : 20px; float : right'>" .
-				smart_date_time(strtotime($line["updated"]))
-				. "</div>";
 
-			$sm = sprintf("%.2f", $line['sm']);
-			print "<img src='images/score_high.png' title='$sm'
-				style='vertical-align : middle'>";
+		$addition = $addition . "</ul>";
 
-			$article_link = htmlspecialchars($line["link"]);
-			print " <a target=\"_blank\" href=\"$article_link\">".
-				$line["title"]."</a>";
+		$article["content"] = $addition . $article["content"];
 
-			print " (<a href=\"#\" onclick=\"viewfeed({feed:".$line["feed_id"]."})\">".
-				htmlspecialchars($line["feed_title"])."</a>)";
-
-			print " <span class='insensitive'>($sm)</span>";
-
-			print "</li>";
-		}*/
-
-		print "</ul>";
-
-		print "<div style='text-align : center'>";
-		print "<button dojoType=\"dijit.form.Button\" onclick=\"dijit.byId('relatedArticlesDialog').hide()\">".__('Close this window')."</button>";
-		print "</div>";
-
-
+		return $article;
 	}
 
 	function hook_update_task() {
@@ -167,13 +112,6 @@ class Related_Articles extends Plugin {
 			// TODO Do batch insertion
 			db_query("INSERT INTO ttrss_related_articles(id, ref_id, title, content) VALUES(NULL, '$id', '$title','$content')");
 		}
-	}
-
-	function hook_article_button($line) {
-		return "<img src=\"plugins/related_articles/button.png\"
-			style=\"cursor : pointer\" style=\"cursor : pointer\"
-			onclick=\"showRelatedArticles(".$line["id"].")\"
-			class='tagsPic' title='".__('Show related articles')."'>";
 	}
 
 	function hook_prefs_tab($args) {
@@ -309,85 +247,8 @@ class Related_Articles extends Plugin {
 		$this->host->set($this, "enabled_feeds", $enabled_feeds);
 	}
 
-	/*function hook_article_filter($article) {
-
-		if (DB_TYPE != "pgsql") return $article;
-
-		$result = db_query("select 'similarity'::regproc");
-		if (db_num_rows($result) == 0) return $article;
-
-		$enable_globally = $this->host->get($this, "enable_globally");
-
-		if (!$enable_globally) {
-			$enabled_feeds = $this->host->get($this, "enabled_feeds");
-			$key = array_search($article["feed"]["id"], $enabled_feeds);
-			if ($key === FALSE) return $article;
-		}
-
-		$similarity = (float) $this->host->get($this, "similarity");
-		if ($similarity < 0.01) return $article;
-
-		$min_title_length = (int) $this->host->get($this, "min_length");
-		if (mb_strlen($article["title"]) < $min_title_length) return $article;
-
-
-		$owner_uid = $article["owner_uid"];
-		$entry_guid = $article["guid_hashed"];
-		$title_escaped = db_escape_string($article["title"]);
-
-		// trgm does not return similarity=1 for completely equal strings
-
-		$result = db_query("SELECT COUNT(id) AS nequal
-		  FROM ttrss_entries, ttrss_user_entries WHERE ref_id = id AND
-		  date_entered >= NOW() - interval '1 day' AND
-		  title = '$title_escaped' AND
-		  guid != '$entry_guid' AND
-		  owner_uid = $owner_uid");
-
-		$nequal = db_fetch_result($result, 0, "nequal");
-		_debug("af_psql_trgm: num equals: $nequal");
-
-		if ($nequal != 0) {
-			$article["force_catchup"] = true;
-			return $article;
-		}
-
-		$result = db_query("SELECT MAX(SIMILARITY(title, '$title_escaped')) AS ms
-		  FROM ttrss_entries, ttrss_user_entries WHERE ref_id = id AND
-		  date_entered >= NOW() - interval '1 day' AND
-		  guid != '$entry_guid' AND
-		  owner_uid = $owner_uid");
-
-		$similarity_result = db_fetch_result($result, 0, "ms");
-
-		_debug("af_psql_trgm: similarity result: $similarity_result");
-
-		if ($similarity_result >= $similarity) {
-			$article["force_catchup"] = true;
-		}
-
-		return $article;
-
-	}*/
-
 	function api_version() {
 		return 2;
 	}
-
-	/*private function filter_unknown_feeds($enabled_feeds) {
-		$tmp = array();
-
-		foreach ($enabled_feeds as $feed) {
-
-			$result = db_query("SELECT id FROM ttrss_feeds WHERE id = '$feed' AND owner_uid = " . $_SESSION["uid"]);
-
-			if (db_num_rows($result) != 0) {
-				array_push($tmp, $feed);
-			}
-		}
-
-		return $tmp;
-	}*/
-
 }
 ?>
