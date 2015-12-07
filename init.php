@@ -1,4 +1,7 @@
 <?php
+
+require_once "colors.php";
+
 class Related_Articles extends Plugin {
 
 	private $host;
@@ -52,6 +55,7 @@ class Related_Articles extends Plugin {
 		$result = db_query("SELECT ttrss_entries.id AS id,
 		        ttrss_entries.updated AS updated,
 		        ttrss_entries.title AS title,
+				ttrss_feeds.id AS feed_id,
 		        ttrss_feeds.title AS feed_name,
 		        ttrss_feeds.favicon_avg_color AS feed_color,
 		        MATCH(ttrss_related_articles.title, ttrss_related_articles.content) AGAINST('$title') AS score
@@ -67,18 +71,38 @@ class Related_Articles extends Plugin {
 		        score DESC
 		    LIMIT 10");
 
-		$addition = "<ul class=\"browseFeedList\">";
+		$addition = "<ul style='list-style-type: none;'>";
 
 		while ($line = db_fetch_assoc($result)) {
+			// Check if max score is defined
+			if (!$max_score) {
+				// Save max score
+				$max_score = $line['score'];
+				$score_type = "high";
+			} else {
+				// Compute related score
+				$relative_score = ($line['score'] - $similarity) / $max_score;
+				// Get related score type
+				if ($relative_score < 0.05) {
+					$score_type = "low";
+				} else if ($relative_score < 0.1) {
+					$score_type = "half_low";
+				} else if ($relative_score < 0.25) {
+					$score_type = "half_high";
+				} else {
+					$score_type = "high";
+				}
+			}
+
 		    $score = sprintf("%.2f", $line['score']);
 
 		    $addition = $addition . "<li>";
 
 		    $addition = $addition . "<div class='insensitive small' style='margin-left : 20px; float : right'>" . smart_date_time(strtotime($line["updated"])) . "</div>";
-		    $addition = $addition . "<img src='images/score_high.png' title='$score' style='vertical-align : middle'>";
+		    $addition = $addition . "<img src='images/score_" . $score_type. ".png' title='$score' style='vertical-align : middle'>";
 
 		    $addition = $addition . "<div class='hlFeed' style='display: inline-block; font-size: 11px; width: 135px'>";
-		    $addition = $addition . "<a href='#' style='umargin-top: 1px; padding: 1px 6px 0px; border: 1px solid rgba(0, 0, 0, 0.03); border-radius: 99px; background: rgba(0, 0, 0, 0.1) none repeat scroll 0% 0%; color: #444; line-height: 1; overflow: hidden; max-width: 115px; text-overflow: ellipsis; background-color: " . $line["feed_color"] . "'>" . $line["feed_name"] . "</a>";
+		    $addition = $addition . "<a onclick='viewfeed({feed:" . $line['feed_id'] . "})' href='#' style='umargin-top: 1px; padding: 1px 6px 0px; border: 1px solid rgba(0, 0, 0, 0.03); border-radius: 99px; background: rgba(0, 0, 0, 0.1) none repeat scroll 0% 0%; color: #444; line-height: 1; overflow: hidden; max-width: 115px; text-overflow: ellipsis; background-color: rgba(" . join(",", _color_unpack($line["feed_color"])) . ", 0.3)'>" . $line["feed_name"] . "</a>";
 		    $addition = $addition . "</div>";
 
 		    $addition = $addition . " " .$line["title"];
