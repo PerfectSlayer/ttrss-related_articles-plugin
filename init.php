@@ -43,6 +43,11 @@ class Related_Articles extends Plugin {
 
 	}
 
+	function get_js() {
+		return file_get_contents(__DIR__ . "/init.js");
+	}
+
+
 	function hook_render_article_cdm($article) {
 		$owner_uid = $_SESSION["uid"];
 
@@ -100,6 +105,8 @@ class Related_Articles extends Plugin {
 
 		    $addition = $addition . "<div class='insensitive small' style='margin-left : 20px; float : right'>" . smart_date_time(strtotime($line["updated"])) . "</div>";
 		    $addition = $addition . "<img src='images/score_" . $score_type. ".png' title='$score' style='vertical-align : middle'>";
+
+			// $addition = $addition . "<a onclick='raToggleUnread(" . $line['id']. ", 0)' href='#'>X</a>";
 
 		    $addition = $addition . "<div class='hlFeed' style='display: inline-block; font-size: 11px; width: 135px'>";
 		    $addition = $addition . "<a onclick='viewfeed({feed:" . $line['feed_id'] . "})' href='#' style='umargin-top: 1px; padding: 1px 6px 0px; border: 1px solid rgba(0, 0, 0, 0.03); border-radius: 99px; background: rgba(0, 0, 0, 0.1) none repeat scroll 0% 0%; color: #444; line-height: 1; overflow: hidden; max-width: 115px; text-overflow: ellipsis; background-color: rgba(" . join(",", _color_unpack($line["feed_color"])) . ", 0.3)'>" . $line["feed_name"] . "</a>";
