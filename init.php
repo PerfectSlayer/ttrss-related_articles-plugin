@@ -2,10 +2,47 @@
 
 require_once 'colors.php';
 
+/**
+ * This class is a plugin that displays related article when reading one.
+ * @author PerfectSlayer (bruce.bujon@gmail.com)
+ */
 class Related_Articles extends Plugin {
-
+	/** The plugin host. */
 	private $host;
 
+	/**
+	 * Initialize the plugin.
+	 * @param	host	The plugin host.
+	 */
+	function init($host) {
+		// Save plugin host
+		$this->host = $host;
+		// Register plugin hooks
+		$host->add_hook($host::HOOK_UPDATE_TASK, $this);
+		$host->add_hook($host::HOOK_PREFS_TAB, $this);
+		$host->add_hook($host::HOOK_PREFS_EDIT_FEED, $this);
+		$host->add_hook($host::HOOK_PREFS_SAVE_FEED, $this);
+	}
+
+	/**
+	 * Get the plugin API version.
+	 * @return The plugin API version.
+	 */
+	function api_version() {
+		return 2;
+	}
+
+	/**
+	 * Get the JavaScript file of the plugin.
+	 */
+	function get_js() {
+		return file_get_contents(__DIR__ . '/init.js');
+	}
+
+	/**
+	 * Get the plugin properties.
+	 * @return An array of plugin properties.
+	 */
 	function about() {
 		return array(1.0,
 			'Find related articles',
@@ -13,6 +50,14 @@ class Related_Articles extends Plugin {
 			true);
 	}
 
+	/*
+	 * Methods called from JS by plugin handler.
+	 */
+
+	/**
+ 	 * Save plugin settings.
+ 	 * Called from JS by plugin handler.
+ 	 */
 	function save() {
 		$similarity = (float) db_escape_string($_POST['similarity']);
 		$min_title_length = (int) db_escape_string($_POST['min_title_length']);
@@ -33,21 +78,6 @@ class Related_Articles extends Plugin {
 	}
 
 	/**
-	 * Initialize the plugin.
-	 * @param	host	The plugin host.
-	 */
-	function init($host) {
-		$this->host = $host;
-
-		$host->add_hook($host::HOOK_UPDATE_TASK, $this);
-		$host->add_hook($host::HOOK_PREFS_TAB, $this);
-		$host->add_hook($host::HOOK_PREFS_EDIT_FEED, $this);
-		$host->add_hook($host::HOOK_PREFS_SAVE_FEED, $this);
-		// $host->add_hook($host::HOOK_RENDER_ARTICLE_CDM, $this);
-
-	}
-
-	/**
 	 * Get related articles.
 	 * Called from JS by plugin handler.
 	 */
@@ -64,7 +94,6 @@ class Related_Articles extends Plugin {
 			WHERE ref_id = id AND id = $id AND owner_uid = $owner_uid");
 		// Fetch article title
 		$title = db_fetch_result($result, 0, 'title');
-
 		/*
 		 * Get related articles.
 		 */
@@ -78,23 +107,23 @@ class Related_Articles extends Plugin {
 		// Query related articles
 		$result = db_query("SELECT ttrss_entries.id AS id,
 				ttrss_entries.link AS link,
-		        ttrss_entries.updated AS updated,
-		        ttrss_entries.title AS title,
+				ttrss_entries.updated AS updated,
+				ttrss_entries.title AS title,
 				ttrss_feeds.id AS feed_id,
-		        ttrss_feeds.title AS feed_name,
-		        ttrss_feeds.favicon_avg_color AS feed_color,
-		        MATCH(ttrss_related_articles.title, ttrss_related_articles.content) AGAINST('$title') AS score
-		    FROM
-		        ttrss_related_articles, ttrss_entries, ttrss_user_entries LEFT JOIN ttrss_feeds ON (ttrss_feeds.id = ttrss_user_entries.feed_id)
-		    WHERE
-		        MATCH(ttrss_related_articles.title, ttrss_related_articles.content) AGAINST('$title') > $similarity AND
-		        ttrss_entries.id = ttrss_user_entries.ref_id AND
-		        ttrss_user_entries.owner_uid = $owner_uid AND
-		        ttrss_related_articles.ref_id = ttrss_entries.id AND
-		        ttrss_related_articles.ref_id != $id
-		    ORDER BY
-		        score DESC
-		    LIMIT 10");
+				ttrss_feeds.title AS feed_name,
+				ttrss_feeds.favicon_avg_color AS feed_color,
+				MATCH(ttrss_related_articles.title, ttrss_related_articles.content) AGAINST('$title') AS score
+			FROM
+				ttrss_related_articles, ttrss_entries, ttrss_user_entries LEFT JOIN ttrss_feeds ON (ttrss_feeds.id = ttrss_user_entries.feed_id)
+			WHERE
+				MATCH(ttrss_related_articles.title, ttrss_related_articles.content) AGAINST('$title') > $similarity AND
+				ttrss_entries.id = ttrss_user_entries.ref_id AND
+				ttrss_user_entries.owner_uid = $owner_uid AND
+				ttrss_related_articles.ref_id = ttrss_entries.id AND
+				ttrss_related_articles.ref_id != $id
+			ORDER BY
+				score DESC
+			LIMIT 10");
 		// Declare related articles
 		$related_articles = array();
 		// Fetch related articles
@@ -134,91 +163,6 @@ class Related_Articles extends Plugin {
 		}
 		// Print JSON encoded related articles
 		print json_encode($related_articles);
-	}
-
-	/**
-	 * Get the JavaScript file of the plugin.
-	 */
-	function get_js() {
-		return file_get_contents(__DIR__ . '/init.js');
-	}
-
-	function hook_render_article_cdm($article) {
-		$owner_uid = $_SESSION["uid"];
-
-		$id = $article['id'];
-		$title = db_escape_string($article['title']);
-
-		$similarity = $this->host->get($this, "similarity");
-		if (!$similarity) $similarity = '5';
-
-		$result = db_query("SELECT ttrss_entries.id AS id,
-		        ttrss_entries.updated AS updated,
-		        ttrss_entries.title AS title,
-				ttrss_feeds.id AS feed_id,
-		        ttrss_feeds.title AS feed_name,
-		        ttrss_feeds.favicon_avg_color AS feed_color,
-		        MATCH(ttrss_related_articles.title, ttrss_related_articles.content) AGAINST('$title') AS score
-		    FROM
-		        ttrss_related_articles, ttrss_entries, ttrss_user_entries LEFT JOIN ttrss_feeds ON (ttrss_feeds.id = ttrss_user_entries.feed_id)
-		    WHERE
-		        MATCH(ttrss_related_articles.title, ttrss_related_articles.content) AGAINST('$title') > $similarity AND
-		        ttrss_entries.id = ttrss_user_entries.ref_id AND
-		        ttrss_user_entries.owner_uid = $owner_uid AND
-		        ttrss_related_articles.ref_id = ttrss_entries.id AND
-		        ttrss_related_articles.ref_id != $id
-		    ORDER BY
-		        score DESC
-		    LIMIT 10");
-
-		$addition = "<ul id='related-articles-" . $id . "' style='list-style-type: none;'>";
-
-		while ($line = db_fetch_assoc($result)) {
-			// Check if max score is defined
-			if (!$max_score) {
-				// Save max score
-				$max_score = $line['score'];
-				$score_type = "high";
-			} else {
-				// Compute related score
-				$relative_score = ($line['score'] - $similarity) / $max_score;
-				// Get related score type
-				if ($relative_score < 0.05) {
-					$score_type = "low";
-				} else if ($relative_score < 0.1) {
-					$score_type = "half_low";
-				} else if ($relative_score < 0.25) {
-					$score_type = "half_high";
-				} else {
-					$score_type = "high";
-				}
-			}
-
-		    $score = sprintf("%.2f", $line['score']);
-
-		    $addition = $addition . "<li>";
-
-		    $addition = $addition . "<div class='insensitive small' style='margin-left : 20px; float : right'>" . smart_date_time(strtotime($line["updated"])) . "</div>";
-		    $addition = $addition . "<img src='images/score_" . $score_type. ".png' title='$score' style='vertical-align : middle'>";
-
-			// $addition = $addition . "<a onclick='raToggleUnread(" . $line['id']. ", 0)' href='#'>X</a>";
-
-		    $addition = $addition . "<div class='hlFeed' style='display: inline-block; font-size: 11px; width: 135px'>";
-		    $addition = $addition . "<a onclick='viewfeed({feed:" . $line['feed_id'] . "})' href='#' style='umargin-top: 1px; padding: 1px 6px 0px; border: 1px solid rgba(0, 0, 0, 0.03); border-radius: 99px; background: rgba(0, 0, 0, 0.1) none repeat scroll 0% 0%; color: #444; line-height: 1; overflow: hidden; max-width: 115px; text-overflow: ellipsis; background-color: rgba(" . join(",", _color_unpack($line["feed_color"])) . ", 0.3)'>" . $line["feed_name"] . "</a>";
-		    $addition = $addition . "</div>";
-
-		    $addition = $addition . " " .$line["title"];
-
-		    $addition = $addition .  " <span class='insensitive'>($score)</span>";
-
-		    $addition = $addition . "</li>";
-		}
-
-		$addition = $addition . "</ul>";
-
-		$article["content"] = $addition . $article["content"];
-
-		return $article;
 	}
 
 	function hook_update_task() {
@@ -371,10 +315,6 @@ class Related_Articles extends Plugin {
 		}
 
 		$this->host->set($this, "enabled_feeds", $enabled_feeds);
-	}
-
-	function api_version() {
-		return 2;
 	}
 }
 ?>
