@@ -1,6 +1,6 @@
 <?php
 
-require_once "colors.php";
+require_once 'colors.php';
 
 class Related_Articles extends Plugin {
 
@@ -8,30 +8,34 @@ class Related_Articles extends Plugin {
 
 	function about() {
 		return array(1.0,
-			"Find related articles",
-			"PerfectSlayer",
+			'Find related articles',
+			'PerfectSlayer',
 			true);
 	}
 
 	function save() {
-		$similarity = (float) db_escape_string($_POST["similarity"]);
-		$min_title_length = (int) db_escape_string($_POST["min_title_length"]);
-		$enable_globally = checkbox_to_sql_bool($_POST["enable_globally"]) == "true";
+		$similarity = (float) db_escape_string($_POST['similarity']);
+		$min_title_length = (int) db_escape_string($_POST['min_title_length']);
+		$enable_globally = checkbox_to_sql_bool($_POST['enable_globally']) == 'true';
 
 		if ($similarity < 0) $similarity = 0;
 		// if ($similarity > 1) $similarity = 1;
 
 		if ($min_title_length < 0) $min_title_length = 0;
 
-		$similarity = sprintf("%.2f", $similarity);
+		$similarity = sprintf('%.2f', $similarity);
 
-		$this->host->set($this, "similarity", $similarity);
-		$this->host->set($this, "min_title_length", $min_title_length);
-		$this->host->set($this, "enable_globally", $enable_globally);
+		$this->host->set($this, 'similarity', $similarity);
+		$this->host->set($this, 'min_title_length', $min_title_length);
+		$this->host->set($this, 'enable_globally', $enable_globally);
 
-		echo T_sprintf("Data saved (%s, %d)", $similarity, $enable_globally);
+		echo T_sprintf('Data saved (%s, %d)', $similarity, $enable_globally);
 	}
 
+	/**
+	 * Initialize the plugin.
+	 * @param	host	The plugin host.
+	 */
 	function init($host) {
 		$this->host = $host;
 
@@ -39,14 +43,105 @@ class Related_Articles extends Plugin {
 		$host->add_hook($host::HOOK_PREFS_TAB, $this);
 		$host->add_hook($host::HOOK_PREFS_EDIT_FEED, $this);
 		$host->add_hook($host::HOOK_PREFS_SAVE_FEED, $this);
-		$host->add_hook($host::HOOK_RENDER_ARTICLE_CDM, $this);
+		// $host->add_hook($host::HOOK_RENDER_ARTICLE_CDM, $this);
 
 	}
 
+	/**
+	 * Get related articles.
+	 * Called from JS by plugin handler.
+	 */
+	function showrelated() {
+		/*
+		 * Retrieve article title.
+		 */
+		// Get the owner identifier
+		$owner_uid = $_SESSION['uid'];
+		// Get the article identifier
+		$id = (int) db_escape_string($_REQUEST['param']);
+		// Query article title
+		$result = db_query("SELECT title FROM ttrss_entries, ttrss_user_entries
+			WHERE ref_id = id AND id = $id AND owner_uid = $owner_uid");
+		// Fetch article title
+		$title = db_fetch_result($result, 0, 'title');
+
+		/*
+		 * Get related articles.
+		 */
+		// Get similarity
+		$similarity = $this->host->get($this, 'similarity');
+		// Check if similarity is define
+		if (!$similarity) {
+			// Apply default similarity
+			$similarity = '5';
+		}
+		// Query related articles
+		$result = db_query("SELECT ttrss_entries.id AS id,
+				ttrss_entries.link AS link,
+		        ttrss_entries.updated AS updated,
+		        ttrss_entries.title AS title,
+				ttrss_feeds.id AS feed_id,
+		        ttrss_feeds.title AS feed_name,
+		        ttrss_feeds.favicon_avg_color AS feed_color,
+		        MATCH(ttrss_related_articles.title, ttrss_related_articles.content) AGAINST('$title') AS score
+		    FROM
+		        ttrss_related_articles, ttrss_entries, ttrss_user_entries LEFT JOIN ttrss_feeds ON (ttrss_feeds.id = ttrss_user_entries.feed_id)
+		    WHERE
+		        MATCH(ttrss_related_articles.title, ttrss_related_articles.content) AGAINST('$title') > $similarity AND
+		        ttrss_entries.id = ttrss_user_entries.ref_id AND
+		        ttrss_user_entries.owner_uid = $owner_uid AND
+		        ttrss_related_articles.ref_id = ttrss_entries.id AND
+		        ttrss_related_articles.ref_id != $id
+		    ORDER BY
+		        score DESC
+		    LIMIT 10");
+		// Declare related articles
+		$related_articles = array();
+		// Fetch related articles
+		while ($line = db_fetch_assoc($result)) {
+			// Check if max score is defined
+			if (!$max_score) {
+				// Save max score
+				$max_score = $line['score'];
+				$score_type = 'high';
+			} else {
+				// Compute related score
+				$relative_score = ($line['score'] - $similarity) / $max_score;
+				// Get related score type
+				if ($relative_score < 0.05) {
+					$score_type = 'low';
+				} else if ($relative_score < 0.1) {
+					$score_type = 'half_low';
+				} else if ($relative_score < 0.25) {
+					$score_type = 'half_high';
+				} else {
+					$score_type = 'high';
+				}
+			}
+			// Create related article
+			$related_article = array(
+				'feed_id' => $line['feed_id'],
+				'feed_name' => htmlspecialchars($line['feed_name']),
+				'feed_color' => 'rgba(' . join(',', _color_unpack($line['feed_color'])) . ', 0.3)',
+				'link' => htmlspecialchars($line['link']),
+				'title' => htmlspecialchars($line['title']),
+				'date_time' => smart_date_time(strtotime($line['updated'])),
+				'score_type' => $score_type,
+				'score' =>  sprintf('%.2f', $line['score'])
+			);
+			// Append related article
+			array_push($related_articles, $related_article);
+		}
+		// Print JSON encoded related articles
+		print json_encode($related_articles);
+	}
+
+	/**
+	 * Get the JavaScript file of the plugin.
+	 */
 	function get_js() {
-		return file_get_contents(__DIR__ . "/init.js");
+		return file_get_contents(__DIR__ . '/init.js');
 	}
-
 
 	function hook_render_article_cdm($article) {
 		$owner_uid = $_SESSION["uid"];
@@ -76,7 +171,7 @@ class Related_Articles extends Plugin {
 		        score DESC
 		    LIMIT 10");
 
-		$addition = "<ul style='list-style-type: none;'>";
+		$addition = "<ul id='related-articles-" . $id . "' style='list-style-type: none;'>";
 
 		while ($line = db_fetch_assoc($result)) {
 			// Check if max score is defined
