@@ -1,5 +1,5 @@
 <?php
-
+// Load dependencies
 require_once 'colors.php';
 
 /**
@@ -37,6 +37,13 @@ class Related_Articles extends Plugin {
 	 */
 	function get_js() {
 		return file_get_contents(__DIR__ . '/init.js');
+	}
+
+	/**
+	 * Get the CSS file of the plugin.
+	 */
+	function get_css() {
+		return file_get_contents(__DIR__ . '/init.css');
 	}
 
 	/**
@@ -109,6 +116,7 @@ class Related_Articles extends Plugin {
 				ttrss_entries.link AS link,
 				ttrss_entries.updated AS updated,
 				ttrss_entries.title AS title,
+				ttrss_user_entries.unread AS unread,
 				ttrss_feeds.id AS feed_id,
 				ttrss_feeds.title AS feed_name,
 				ttrss_feeds.favicon_avg_color AS feed_color,
@@ -152,11 +160,13 @@ class Related_Articles extends Plugin {
 				'feed_id' => $line['feed_id'],
 				'feed_name' => htmlspecialchars($line['feed_name']),
 				'feed_color' => 'rgba(' . join(',', _color_unpack($line['feed_color'])) . ', 0.3)',
+				'id' => $line['id'],
 				'link' => htmlspecialchars($line['link']),
 				'title' => htmlspecialchars($line['title']),
 				'date_time' => smart_date_time(strtotime($line['updated'])),
 				'score_type' => $score_type,
-				'score' =>  sprintf('%.2f', $line['score'])
+				'score' =>  sprintf('%.2f', $line['score']),
+				'unread' => $line['unread']
 			);
 			// Append related article
 			array_push($related_articles, $related_article);

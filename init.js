@@ -72,9 +72,7 @@ dojo.addOnLoad(function() {
 					// Append each related articles
 					for (var related_article of response) {
 						// Create li for related article
-						var liNode = dojo.create('li', {
-							'innerHTML': ' ' + related_article['title'] + ' '
-						}, listNode);
+						var liNode = dojo.create('li', null, listNode);
 						// Create div for date-time
 						dojo.create('div', {
 							'class': 'insensitive small',
@@ -102,9 +100,17 @@ dojo.addOnLoad(function() {
 								'background-color: ' + related_article['feed_color'] + ';',
 							'innerHTML': related_article['feed_name']
 						}, feedDivNode);
+						// Create link a
+						dojo.create('a', {
+							'href': related_article['link'],
+							'title': related_article['title'],
+							'class': related_article['unread'] == '1' ? 'relatedArticleUnread' : 'relatedArticleRead',
+							'innerHTML': related_article['title'],
+						}, liNode, 'last');
 						// Create score span
 						dojo.create('span', {
 							'class': 'insensitive',
+							'style': 'padding-left: 0.5em',
 							'innerHTML': '(' + related_article['score'] + ')'
 						}, liNode, 'last');
 					}
