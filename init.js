@@ -38,39 +38,53 @@ dojo.addOnLoad(function() {
 		console.info("HOOK_ARTICLE_EXPANDED");
 		console.info(id);
 		try {
-			// Check if related articles list already exist
-			var listNode = dojo.byId('related-articles-' + id);
-			if (listNode) {
+			// Check if related articles list or loading div already exist
+			if (dojo.byId('related-articles-' + id) || dojo.byId('related-articles-loading-'+id)) {
 				console.info('Related articles are already loaded for id ' + id);
 				return;
 			}
-			console.info('Loading related articles for id: '+id);
+			// Get article span
+			var spanNode = dojo.byId('CWRAP-' + id);
+			if (!spanNode) {
+				console.info('Unable to retrieve article span for id ' + id);
+				return;
+			}
+			// Create loading div
+			var divNode = dojo.create('div', {
+				id: 'related-articles-loading-' + id,
+				innerHTML: 'Loading related articles…',
+				style: 'font-style: italic'
+			}, spanNode, 'first');
+			console.info('Loading related articles for id: ' + id);
 			// Send request to showrelated method with feed entry id
 			new Ajax.Request('backend.php', {
 				parameters: 'op=pluginhandler&plugin=related_articles&method=showrelated&param=' + param_escape(id),
-				onComplete: function(transport) {
-					console.info(transport);
-					console.info('Response: ' + transport.responseText);
+				onComplete: function(response) {
+					// Check response status
+					if (response.status !== 200) {
+						// Notify user
+						divNode.innerHTML = 'Sorry. Could not load related articles.';
+						console.info('Unable to load related articles for id ' + id);
+						return;
+					}
 					// Decode JSON encoded response
-					var response = JSON.parse(transport.responseText);
+					var related_articles = JSON.parse(response.responseText);
 					// Check response length
-					if (response.length < 1) {
+					if (related_articles.length < 1) {
+						// Notify user
+						divNode.innerHTML = 'No related articles found.';
 						console.info('No related article for id ' + id);
 						return;
 					}
-					// Get article span
-					var spanNode = dojo.byId('CWRAP-' + id);
-					if (!spanNode) {
-						console.info('Unable to retrieve article span for id ' + id);
-						return;
-					}
+					// Remove loading div
+					dojo.destroy(divNode);
 					// Create related article list
 					var listNode = dojo.create('ul', {
 						'id': 'related-articles-' + id,
 						'style': 'list-style-type: none;'
 					}, spanNode, 'first');
 					// Append each related articles
-					for (var related_article of response) {
+					for (var related_article of related_articles) {
 						// Create li for related article
 						var liNode = dojo.create('li', null, listNode);
 						// Create div for date-time
