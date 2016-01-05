@@ -95,17 +95,17 @@ class Related_Articles extends Plugin {
 		// Get the owner identifier
 		$owner_uid = $_SESSION['uid'];
 		// Get the article identifier
-		$id = (int) db_escape_string($_REQUEST['param']);
+		$id = db_escape_string($_REQUEST['param']);
 		// Query article title
 		$result = db_query("SELECT title FROM ttrss_entries, ttrss_user_entries
 			WHERE ref_id = id AND id = $id AND owner_uid = $owner_uid");
 		// Fetch article title
-		$title = db_fetch_result($result, 0, 'title');
+		$title = db_escape_string(db_fetch_result($result, 0, 'title'));
 		/*
 		 * Get related articles.
 		 */
 		// Get similarity
-		$similarity = $this->host->get($this, 'similarity');
+		$similarity = db_escape_string($this->host->get($this, 'similarity'));
 		// Check if similarity is define
 		if (!$similarity) {
 			// Apply default similarity
