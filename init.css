@@ -1,6 +1,8 @@
 a.relatedArticleUnread {
-    color: #444
+    /*
+    color: #444;
     font-weight: bolder;
+    */
 }
 a.relatedArticleRead {
     color: #444;

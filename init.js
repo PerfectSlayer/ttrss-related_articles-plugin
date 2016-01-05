@@ -1,17 +1,37 @@
 /**
  * Toggle related article as unread.
- * @id  The article identifier.
- * @cmode   0 to mark as read, 1 to mark as unread and 2 to toggle.
+ * @param	button
+ * @param	relatedArticleId	The related article identifier.
  */
-function raToggleUnread(id, cmode) {
-	var query = "?op=rpc&method=catchupSelected" +
-		"&cmode=" + param_escape(cmode) + "&ids=" + param_escape(id);
+function raToggleUnread(button, relatedArticleId) {
+	console.info('Toggle unread article for id ' + relatedArticleId);
+	// Request toggle unread related article
+	raRequestToggleUnread(relatedArticleId, 2, function() {
+		// Get related article link
+		var aNode = button.nextSibling;
+		// Switch unread CSS class
+		aNode.className = aNode.className === 'relatedArticleRead' ? 'relatedArticleUnread' : 'relatedArticleRead';
+	})
+}
 
-
-	new Ajax.Request("backend.php", {
-		parameters: query,
-		onComplete: function(transport) {
-			handle_rpc_json(transport);
+/**
+ * Toggle article as unread.
+ * @param	id  		The article identifier.
+ * @param	cmode   	0 to mark as read, 1 to mark as unread and 2 to toggle.
+ * @param	callback	The callback if request is successful.
+ */
+function raRequestToggleUnread(id, cmode, callback) {
+	// Call catchupSelected method throw RPC backend
+	new Ajax.Request('backend.php', {
+		parameters: 'op=rpc&method=catchupSelected&cmode=' + param_escape(cmode) + '&ids=' + param_escape(id),
+		onComplete: function(response) {
+			// Check response status
+			if (response.status === 200) {
+				// Call back
+				callback();
+			}
+			// Handle response
+			handle_rpc_json(response);
 		}
 	});
 }
@@ -35,11 +55,10 @@ dojo.addOnLoad(function() {
 	});*/
 	// Register HOOK_ARTICLE_EXPANDED hook
 	PluginHost.register(PluginHost.HOOK_ARTICLE_EXPANDED, function(id) {
-		console.info("HOOK_ARTICLE_EXPANDED");
-		console.info(id);
+		console.info('HOOK_ARTICLE_EXPANDED for id ' + id);
 		try {
 			// Check if related articles list or loading div already exist
-			if (dojo.byId('related-articles-' + id) || dojo.byId('related-articles-loading-'+id)) {
+			if (dojo.byId('related-articles-' + id) || dojo.byId('related-articles-loading-' + id)) {
 				console.info('Related articles are already loaded for id ' + id);
 				return;
 			}
@@ -114,6 +133,17 @@ dojo.addOnLoad(function() {
 								'background-color: ' + related_article['feed_color'] + ';',
 							'innerHTML': related_article['feed_name']
 						}, feedDivNode);
+						// Create toggle unread a
+						var toggleReadANode = dojo.create('a', {
+							'onclick': 'raToggleUnread(this, ' + related_article['id'] + '); return false',
+							'href': '#'
+						}, liNode, 'last');
+						// Create toggle unread image
+						dojo.create('img', {
+							'src': 'plugins/related_articles/toggle_unread.png',
+							'alt': 'Toggle unread related article',
+							'style': 'vertical-align: middle; margin: 0em 0.5em'
+						}, toggleReadANode);
 						// Create link a
 						dojo.create('a', {
 							'href': related_article['link'],
