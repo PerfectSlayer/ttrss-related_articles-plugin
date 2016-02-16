@@ -270,7 +270,7 @@ class Related_Articles extends Plugin {
 		$enabled_feeds = $this->host->get($this, "enabled_feeds");
 		if (!array($enabled_feeds)) $enabled_feeds = array();
 
-		$enabled_feeds = $this->filter_unknown_feeds($enabled_feeds);
+		$enabled_feeds = array(); // $this->filter_unknown_feeds($enabled_feeds);
 		$this->host->set($this, "enabled_feeds", $enabled_feeds);
 
 		if (count($enabled_feeds) > 0) {
