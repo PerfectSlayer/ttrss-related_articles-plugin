@@ -177,7 +177,10 @@ class Related_Articles extends Plugin {
 
 	function hook_update_task() {
 		// TODO Specific user filter applied (ttrss_user_entries.owner_uid = 1)
-		// Select entries which are not already in related feeds table
+		/*
+		 * Insert related articles of new entries.
+		 */
+		// Select entries which are not already in related articles table
 		$result = db_query("SELECT ttrss_entries.id AS id, ttrss_entries.title AS title, ttrss_entries.content AS content
 			FROM ttrss_entries, ttrss_user_entries
 			WHERE ttrss_entries.id = ttrss_user_entries.ref_id AND ttrss_user_entries.owner_uid = 1 AND ttrss_entries.id NOT IN (
@@ -192,6 +195,11 @@ class Related_Articles extends Plugin {
 			// TODO Do batch insertion
 			db_query("INSERT INTO ttrss_related_articles(id, ref_id, title, content) VALUES(NULL, '$id', '$title','$content')");
 		}
+		/*
+		 * Remove related articles of removed entries.
+		 */
+		// Delete all related articles whos ref_id are no more an id of entries
+		db_query("DELETE FROM ttrss_related_articles WHERE ref_id NOT IN (SELECT id FROM ttrss_entries)");
 	}
 
 	function hook_prefs_tab($args) {
