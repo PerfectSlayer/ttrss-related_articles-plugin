@@ -141,7 +141,7 @@ require(['dojo/_base/kernel', 'dojo/ready'], function  (dojo, ready) {
 							}, liNode, 'last');
 							// Create toggle unread image
 							dojo.create('img', {
-								'src': 'plugins/related_articles/toggle_unread.png',
+								'src': 'plugins.local/related_articles/toggle_unread.png',
 								'alt': 'Toggle unread related article',
 								'style': 'vertical-align: middle; margin: 0em 0.5em'
 							}, toggleReadANode);
