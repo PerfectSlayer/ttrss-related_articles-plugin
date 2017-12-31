@@ -1,9 +1,9 @@
 SET NAMES utf8;
 SET CHARACTER SET utf8;
 
-drop table if exists ttrss_related_articles;
+drop table if exists plugin_ttrss_related_articles;
 
-CREATE TABLE `ttrss_related_articles` (
+CREATE TABLE `plugin_ttrss_related_articles` (
  `id` int(11) NOT NULL AUTO_INCREMENT,
  `ref_id` int(11) NOT NULL,
  `title` text NOT NULL,

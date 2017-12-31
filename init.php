@@ -120,15 +120,15 @@ class Related_Articles extends Plugin {
 				ttrss_feeds.id AS feed_id,
 				ttrss_feeds.title AS feed_name,
 				ttrss_feeds.favicon_avg_color AS feed_color,
-				MATCH(ttrss_related_articles.title, ttrss_related_articles.content) AGAINST('$title') AS score
+				MATCH(plugin_ttrss_related_articles.title, plugin_ttrss_related_articles.content) AGAINST('$title') AS score
 			FROM
-				ttrss_related_articles, ttrss_entries, ttrss_user_entries LEFT JOIN ttrss_feeds ON (ttrss_feeds.id = ttrss_user_entries.feed_id)
+				plugin_ttrss_related_articles, ttrss_entries, ttrss_user_entries LEFT JOIN ttrss_feeds ON (ttrss_feeds.id = ttrss_user_entries.feed_id)
 			WHERE
-				MATCH(ttrss_related_articles.title, ttrss_related_articles.content) AGAINST('$title') > $similarity AND
+				MATCH(plugin_ttrss_related_articles.title, plugin_ttrss_related_articles.content) AGAINST('$title') > $similarity AND
 				ttrss_entries.id = ttrss_user_entries.ref_id AND
 				ttrss_user_entries.owner_uid = $owner_uid AND
-				ttrss_related_articles.ref_id = ttrss_entries.id AND
-				ttrss_related_articles.ref_id != $id
+				plugin_ttrss_related_articles.ref_id = ttrss_entries.id AND
+				plugin_ttrss_related_articles.ref_id != $id
 			ORDER BY
 				score DESC
 			LIMIT 10");
@@ -184,7 +184,7 @@ class Related_Articles extends Plugin {
 		$result = db_query("SELECT ttrss_entries.id AS id, ttrss_entries.title AS title, ttrss_entries.content AS content
 			FROM ttrss_entries, ttrss_user_entries
 			WHERE ttrss_entries.id = ttrss_user_entries.ref_id AND ttrss_user_entries.owner_uid = 1 AND ttrss_entries.id NOT IN (
-				SELECT ttrss_related_articles.ref_id FROM ttrss_related_articles
+				SELECT plugin_ttrss_related_articles.ref_id FROM plugin_ttrss_related_articles
 			)");
 		// Add each entry
 		while ($line = db_fetch_assoc($result)) {
@@ -193,13 +193,13 @@ class Related_Articles extends Plugin {
 			$content = db_escape_string($line['content']);
 			// TODO Strip tags of content
 			// TODO Do batch insertion
-			db_query("INSERT INTO ttrss_related_articles(id, ref_id, title, content) VALUES(NULL, '$id', '$title','$content')");
+			db_query("INSERT INTO plugin_ttrss_related_articles(id, ref_id, title, content) VALUES(NULL, '$id', '$title','$content')");
 		}
 		/*
 		 * Remove related articles of removed entries.
 		 */
 		// Delete all related articles whos ref_id are no more an id of entries
-		db_query("DELETE FROM ttrss_related_articles WHERE ref_id NOT IN (SELECT id FROM ttrss_entries)");
+		db_query("DELETE FROM plugin_ttrss_related_articles WHERE ref_id NOT IN (SELECT id FROM ttrss_entries)");
 	}
 
 	function hook_prefs_tab($args) {
@@ -231,7 +231,6 @@ class Related_Articles extends Plugin {
 		print "<script type=\"dojo/method\" event=\"onSubmit\" args=\"evt\">
 			evt.preventDefault();
 			if (this.validate()) {
-				console.log(dojo.objectToQuery(this.getValues()));
 				new Ajax.Request('backend.php', {
 					parameters: dojo.objectToQuery(this.getValues()),
 					onComplete: function(transport) {
