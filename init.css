@@ -1,9 +1,8 @@
-a.relatedArticleUnread {
-    /*
-    color: #444;
-    font-weight: bolder;
-    */
+body.ttrss_main a.relatedArticleUnread {
+    color: rgba(0,0,0,.75);
+    font-weight: 400;
 }
-a.relatedArticleRead {
-    color: #444;
+body.ttrss_main a.relatedArticleRead {
+    color: rgba(0,0,0,.45);
+    font-weight: 400;
 }

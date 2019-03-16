@@ -11,7 +11,7 @@ function raToggleUnread(button, relatedArticleId) {
 		var aNode = button.nextSibling;
 		// Switch unread CSS class
 		aNode.className = aNode.className === 'relatedArticleRead' ? 'relatedArticleUnread' : 'relatedArticleRead';
-	})
+	});
 }
 
 /**
@@ -22,41 +22,21 @@ function raToggleUnread(button, relatedArticleId) {
  */
 function raRequestToggleUnread(id, cmode, callback) {
 	// Call catchupSelected method throw RPC backend
-	new Ajax.Request('backend.php', {
-		parameters: 'op=rpc&method=catchupSelected&cmode=' + param_escape(cmode) + '&ids=' + param_escape(id),
-		onComplete: function(response) {
-			// Check response status
-			if (response.status === 200) {
-				// Call back
-				callback();
-			}
-			// Handle response
-			handle_rpc_json(response);
-		}
-	});
+	xhrPost("backend.php", {
+		op: "rpc",
+		method: "catchupSelected",
+		ids: id,
+		cmode: cmode
+	}).then(callback);
 }
 
 // Register hooks
 require(['dojo/_base/kernel', 'dojo/ready'], function  (dojo, ready) {
 	ready(function () {
-		/*PluginHost.register(PluginHost.HOOK_ARTICLE_RENDERED, function(row) {
-			console.info("HOOK_ARTICLE_RENDERED");
-			console.info(row);
-			return true;
-		});
-		PluginHost.register(PluginHost.HOOK_ARTICLE_RENDERED_CDM, function(row) {
-			console.info("HOOK_ARTICLE_RENDERED_CDM");
-			console.info(row);
-			return true;
-		});
-		PluginHost.register(PluginHost.HOOK_ARTICLE_SET_ACTIVE, function(id) {
-			console.info("HOOK_ARTICLE_SET_ACTIVE");
-			console.info(id);
-			return true;
-		});*/
-		// Register HOOK_ARTICLE_EXPANDED hook
-		PluginHost.register(PluginHost.HOOK_ARTICLE_EXPANDED, function(id) {
-			console.info('HOOK_ARTICLE_EXPANDED for id ' + id);
+		// Register HOOK_ARTICLE_RENDERED hook
+		PluginHost.register(PluginHost.HOOK_ARTICLE_RENDERED, function(row) {
+			var id = Article.getActive();
+			console.info('HOOK_ARTICLE_RENDERED for id ' + id);
 			try {
 				// Check if related articles list or loading div already exist
 				if (dojo.byId('related-articles-' + id) || dojo.byId('related-articles-loading-' + id)) {
@@ -64,21 +44,22 @@ require(['dojo/_base/kernel', 'dojo/ready'], function  (dojo, ready) {
 					return;
 				}
 				// Get article span
-				var spanNode = dojo.byId('CWRAP-' + id);
-				if (!spanNode) {
-					console.info('Unable to retrieve article span for id ' + id);
+				var contentDiv = row.getElementsByClassName('content');
+				if (!contentDiv || contentDiv.length < 1) {
+					console.info('Unable to retrieve article div');
 					return;
 				}
+				contentDiv = contentDiv[0];
 				// Create loading div
 				var divNode = dojo.create('div', {
 					id: 'related-articles-loading-' + id,
 					innerHTML: 'Loading related articles…',
 					style: 'font-style: italic'
-				}, spanNode, 'first');
+				}, contentDiv, 'first');
 				console.info('Loading related articles for id: ' + id);
 				// Send request to showrelated method with feed entry id
 				new Ajax.Request('backend.php', {
-					parameters: 'op=pluginhandler&plugin=related_articles&method=showrelated&param=' + param_escape(id),
+					parameters: 'op=pluginhandler&plugin=related_articles&method=showrelated&param=' + id,
 					onComplete: function(response) {
 						// Check response status
 						if (response.status !== 200) {
@@ -102,7 +83,7 @@ require(['dojo/_base/kernel', 'dojo/ready'], function  (dojo, ready) {
 						var listNode = dojo.create('ul', {
 							'id': 'related-articles-' + id,
 							'style': 'list-style-type: none;'
-						}, spanNode, 'first');
+						}, contentDiv, 'first');
 						// Append each related articles
 						for (var related_article of related_articles) {
 							// Create li for related article
@@ -168,10 +149,5 @@ require(['dojo/_base/kernel', 'dojo/ready'], function  (dojo, ready) {
 			// Continue plugin hook run
 			return true;
 		});
-		/*PluginHost.register(PluginHost.HOOK_ARTICLE_COLLAPSED, function(id) {
-			console.info("HOOK_ARTICLE_COLLAPSED");
-			console.info(id);
-			return true;
-		});*/
 	})
 });
