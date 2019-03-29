@@ -18,7 +18,6 @@ class Related_Articles extends Plugin {
 		// Save plugin host
 		$this->host = $host;
 		// Register plugin hooks
-		$host->add_hook($host::HOOK_UPDATE_TASK, $this);
 		$host->add_hook($host::HOOK_PREFS_TAB, $this);
 		$host->add_hook($host::HOOK_PREFS_EDIT_FEED, $this);
 		$host->add_hook($host::HOOK_PREFS_SAVE_FEED, $this);
@@ -171,33 +170,6 @@ class Related_Articles extends Plugin {
 		}
 		// Print JSON encoded related articles
 		print json_encode($related_articles);
-	}
-
-	function hook_update_task() {
-		// TODO Specific user filter applied (ttrss_user_entries.owner_uid = 1)
-		/*
-		 * Insert related articles of new entries.
-		 */
-		// Select entries which are not already in related articles table
-		$result = db_query("SELECT ttrss_entries.id AS id, ttrss_entries.title AS title, ttrss_entries.content AS content
-			FROM ttrss_entries, ttrss_user_entries
-			WHERE ttrss_entries.id = ttrss_user_entries.ref_id AND ttrss_user_entries.owner_uid = 1 AND ttrss_entries.id NOT IN (
-				SELECT plugin_ttrss_related_articles.ref_id FROM plugin_ttrss_related_articles
-			)");
-		// Add each entry
-		while ($line = db_fetch_assoc($result)) {
-			$id = $line['id'];
-			$title = db_escape_string($line['title']);
-			$content = db_escape_string($line['content']);
-			// TODO Strip tags of content
-			// TODO Do batch insertion
-			db_query("INSERT INTO plugin_ttrss_related_articles(id, ref_id, title, content) VALUES(NULL, '$id', '$title','$content')");
-		}
-		/*
-		 * Remove related articles of removed entries.
-		 */
-		// Delete all related articles whos ref_id are no more an id of entries
-		db_query("DELETE FROM plugin_ttrss_related_articles WHERE ref_id NOT IN (SELECT id FROM ttrss_entries)");
 	}
 
 	function hook_prefs_tab($args) {
