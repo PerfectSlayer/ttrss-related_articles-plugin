@@ -124,6 +124,7 @@ class Related_Articles extends Plugin {
 				ttrss_entries, ttrss_user_entries LEFT JOIN ttrss_feeds ON (ttrss_feeds.id = ttrss_user_entries.feed_id)
 			WHERE
 				MATCH(ttrss_entries.title, ttrss_entries.content) AGAINST('$title') > $similarity AND
+				ttrss_entries.id != $id AND
 				ttrss_entries.id = ttrss_user_entries.ref_id AND
 				ttrss_user_entries.owner_uid = $owner_uid
 			ORDER BY
