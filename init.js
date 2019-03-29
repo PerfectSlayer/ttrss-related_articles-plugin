@@ -82,6 +82,7 @@ require(['dojo/_base/kernel', 'dojo/ready'], function  (dojo, ready) {
 						// Create related article list
 						var listNode = dojo.create('ul', {
 							'id': 'related-articles-' + id,
+							'class': 'relatedArticles',
 							'style': 'list-style-type: none;'
 						}, contentDiv, 'first');
 						// Append each related articles

@@ -1,3 +1,9 @@
+body.ttrss_main ul.relatedArticles {
+    padding-left: 0px;
+}
+body.ttrss_main ul.relatedArticles li {
+    padding: 0px;
+}
 body.ttrss_main a.relatedArticleUnread {
     color: rgba(0,0,0,.75);
     font-weight: 400;
