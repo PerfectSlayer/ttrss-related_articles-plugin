@@ -120,15 +120,13 @@ class Related_Articles extends Plugin {
 				ttrss_feeds.id AS feed_id,
 				ttrss_feeds.title AS feed_name,
 				ttrss_feeds.favicon_avg_color AS feed_color,
-				MATCH(plugin_ttrss_related_articles.title, plugin_ttrss_related_articles.content) AGAINST('$title') AS score
+				MATCH(ttrss_entries.title, ttrss_entries.content) AGAINST('$title') AS score
 			FROM
-				plugin_ttrss_related_articles, ttrss_entries, ttrss_user_entries LEFT JOIN ttrss_feeds ON (ttrss_feeds.id = ttrss_user_entries.feed_id)
+				ttrss_entries, ttrss_user_entries LEFT JOIN ttrss_feeds ON (ttrss_feeds.id = ttrss_user_entries.feed_id)
 			WHERE
-				MATCH(plugin_ttrss_related_articles.title, plugin_ttrss_related_articles.content) AGAINST('$title') > $similarity AND
+				MATCH(ttrss_entries.title, ttrss_entries.content) AGAINST('$title') > $similarity AND
 				ttrss_entries.id = ttrss_user_entries.ref_id AND
-				ttrss_user_entries.owner_uid = $owner_uid AND
-				plugin_ttrss_related_articles.ref_id = ttrss_entries.id AND
-				plugin_ttrss_related_articles.ref_id != $id
+				ttrss_user_entries.owner_uid = $owner_uid
 			ORDER BY
 				score DESC
 			LIMIT 10");
