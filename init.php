@@ -91,27 +91,39 @@ class Related_Articles extends Plugin {
 		/*
 		 * Retrieve article title.
 		 */
-		// Get the owner identifier
-		$owner_uid = $_SESSION['uid'];
+		// Get the user identifier
+		$uid = $_SESSION['uid'];
 		// Get the article identifier
-		$id = db_escape_string($_REQUEST['param']);
+		$id = $_REQUEST['param'];
 		// Query article title
-		$result = db_query("SELECT title FROM ttrss_entries, ttrss_user_entries
-			WHERE ref_id = id AND id = $id AND owner_uid = $owner_uid");
+		$title_statement = $this->pdo->prepare(
+			'SELECT
+				title
+			FROM
+				ttrss_entries, ttrss_user_entries
+			WHERE 
+				ref_id = id AND
+				id = :id AND
+				owner_uid = :uid'
+		);
+		$title_statement->bindValue(':id', $id, PDO::PARAM_INT);
+		$title_statement->bindValue(':uid', $uid, PDO::PARAM_INT);
+		$title_statement->execute();
 		// Fetch article title
-		$title = db_escape_string(db_fetch_result($result, 0, 'title'));
+		$title = $title_statement->fetchColumn();
 		/*
 		 * Get related articles.
 		 */
 		// Get similarity
-		$similarity = db_escape_string($this->host->get($this, 'similarity'));
+		$similarity = $this->host->get($this, 'similarity');
 		// Check if similarity is define
 		if (!$similarity) {
 			// Apply default similarity
 			$similarity = '5';
 		}
-		// Query related articles
-		$result = db_query("SELECT ttrss_entries.id AS id,
+		$entries_statement = $this->pdo->prepare(
+			'SELECT 
+				ttrss_entries.id AS id,
 				ttrss_entries.link AS link,
 				ttrss_entries.updated AS updated,
 				ttrss_entries.title AS title,
@@ -119,29 +131,37 @@ class Related_Articles extends Plugin {
 				ttrss_feeds.id AS feed_id,
 				ttrss_feeds.title AS feed_name,
 				ttrss_feeds.favicon_avg_color AS feed_color,
-				MATCH(ttrss_entries.title, ttrss_entries.content) AGAINST('$title') AS score
+				MATCH(ttrss_entries.title, ttrss_entries.content) AGAINST(\'\':title1\'\' IN NATURAL LANGUAGE MODE) AS score
 			FROM
 				ttrss_entries, ttrss_user_entries LEFT JOIN ttrss_feeds ON (ttrss_feeds.id = ttrss_user_entries.feed_id)
 			WHERE
-				MATCH(ttrss_entries.title, ttrss_entries.content) AGAINST('$title') > $similarity AND
-				ttrss_entries.id != $id AND
+				ttrss_user_entries.unread = 1 AND
+				MATCH(ttrss_entries.title, ttrss_entries.content) AGAINST(\'\':title2\'\' IN NATURAL LANGUAGE MODE) > :similarity AND
+				ttrss_entries.id != :id AND
 				ttrss_entries.id = ttrss_user_entries.ref_id AND
-				ttrss_user_entries.owner_uid = $owner_uid
+				ttrss_user_entries.owner_uid = :uid
 			ORDER BY
 				score DESC
-			LIMIT 10");
+			LIMIT 7'
+		);
+		$entries_statement->bindValue(':id', $id, PDO::PARAM_INT);
+		$entries_statement->bindValue(':uid', $uid, PDO::PARAM_INT);
+		$entries_statement->bindValue(':title1', $title, PDO::PARAM_STR);
+		$entries_statement->bindValue(':title2', $title, PDO::PARAM_STR);
+		$entries_statement->bindValue(':similarity', $similarity, PDO::PARAM_STR);
+		$entries_statement->execute();
 		// Declare related articles
 		$related_articles = array();
 		// Fetch related articles
-		while ($line = db_fetch_assoc($result)) {
+		while ($entry = $entries_statement->fetch(PDO::FETCH_ASSOC)) {
 			// Check if max score is defined
 			if (!$max_score) {
 				// Save max score
-				$max_score = $line['score'];
+				$max_score = $entry['score'];
 				$score_type = 'high';
 			} else {
 				// Compute related score
-				$relative_score = ($line['score'] - $similarity) / $max_score;
+				$relative_score = ($entry['score'] - $similarity) / $max_score;
 				// Get related score type
 				if ($relative_score < 0.05) {
 					$score_type = 'low';
@@ -155,16 +175,16 @@ class Related_Articles extends Plugin {
 			}
 			// Create related article
 			$related_article = array(
-				'feed_id' => $line['feed_id'],
-				'feed_name' => htmlspecialchars($line['feed_name']),
-				'feed_color' => 'rgba(' . join(',', _color_unpack($line['feed_color'])) . ', 0.3)',
-				'id' => $line['id'],
-				'link' => htmlspecialchars($line['link']),
-				'title' => htmlspecialchars($line['title']),
-				'date_time' => smart_date_time(strtotime($line['updated'])),
+				'feed_id' => $entry['feed_id'],
+				'feed_name' => htmlspecialchars($entry['feed_name']),
+				'feed_color' => 'rgba(' . join(',', _color_unpack($entry['feed_color'])) . ', 0.3)',
+				'id' => $entry['id'],
+				'link' => htmlspecialchars($entry['link']),
+				'title' => htmlspecialchars($entry['title']),
+				'date_time' => smart_date_time(strtotime($entry['updated'])),
 				'score_type' => $score_type,
-				'score' =>  sprintf('%.2f', $line['score']),
-				'unread' => $line['unread']
+				'score' =>  sprintf('%.2f', $entry['score']),
+				'unread' => $entry['unread']
 			);
 			// Append related article
 			array_push($related_articles, $related_article);
