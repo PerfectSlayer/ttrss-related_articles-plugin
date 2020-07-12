@@ -97,7 +97,7 @@ require(['dojo/_base/kernel', 'dojo/ready'], function  (dojo, ready) {
 							}, liNode, 0);
 							// Create score image
 							dojo.create('img', {
-								'src': 'images/score_' + related_article['score_type'] + '.png',
+								'src': 'plugins.local/related_articles/score_' + related_article['score_type'] + '.png',
 								'title': related_article['score'],
 								'style': 'vertical-align: middle'
 							}, liNode, 1);
