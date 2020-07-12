@@ -131,29 +131,30 @@ class Related_Articles extends Plugin {
 				ttrss_feeds.id AS feed_id,
 				ttrss_feeds.title AS feed_name,
 				ttrss_feeds.favicon_avg_color AS feed_color,
-				MATCH(ttrss_entries.title, ttrss_entries.content) AGAINST(\'\':title1\'\' IN NATURAL LANGUAGE MODE) AS score
+				MATCH(ttrss_entries.title, ttrss_entries.content) AGAINST(\'\':title\'\' IN NATURAL LANGUAGE MODE) AS score
 			FROM
 				ttrss_entries, ttrss_user_entries LEFT JOIN ttrss_feeds ON (ttrss_feeds.id = ttrss_user_entries.feed_id)
 			WHERE
 				ttrss_user_entries.unread = 1 AND
-				MATCH(ttrss_entries.title, ttrss_entries.content) AGAINST(\'\':title2\'\' IN NATURAL LANGUAGE MODE) > :similarity AND
 				ttrss_entries.id != :id AND
 				ttrss_entries.id = ttrss_user_entries.ref_id AND
 				ttrss_user_entries.owner_uid = :uid
 			ORDER BY
 				score DESC
-			LIMIT 7'
+			LIMIT 5'
 		);
 		$entries_statement->bindValue(':id', $id, PDO::PARAM_INT);
 		$entries_statement->bindValue(':uid', $uid, PDO::PARAM_INT);
-		$entries_statement->bindValue(':title1', $title, PDO::PARAM_STR);
-		$entries_statement->bindValue(':title2', $title, PDO::PARAM_STR);
-		$entries_statement->bindValue(':similarity', $similarity, PDO::PARAM_STR);
+		$entries_statement->bindValue(':title', $title, PDO::PARAM_STR);
 		$entries_statement->execute();
 		// Declare related articles
 		$related_articles = array();
 		// Fetch related articles
 		while ($entry = $entries_statement->fetch(PDO::FETCH_ASSOC)) {
+			// Skip unsimilar entries
+			if ($entry['score'] < $similarity) {
+				continue;
+			}
 			// Check if max score is defined
 			if (!$max_score) {
 				// Save max score
